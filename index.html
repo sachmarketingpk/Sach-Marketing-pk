@@ -2555,7 +2555,8 @@ async function autoMail(){
   if(!fr.length)return;
   const body=fr.map(a=>a.ic+' '+a.t+'\n   '+a.s).join('\n\n');
   try{
-    await fetch('https://api.emailjs.com/api/v1.0/email/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:c.svc,template_id:c.tpl,user_id:c.pub,template_params:{to_email:c.mail,subject:D.set.co+': '+fr.length+' alert(s)',message:body,from_name:D.set.co}})});
+    const rs=await sendEmail(c.mail,D.set.co+': '+fr.length+' alert(s)',body);
+    if(!rs.ok)return;
     LS('dp_aimail',{d:t,k:[...seen,...fr.map(a=>a.k)]});
   }catch(e){}
 }
@@ -2875,22 +2876,34 @@ const hint=e=>{e=String(e||'');
  if(/429|limit|quota/i.test(e))return 'Free limit (200/mahina) khatam ho gayi, ya requests bohat tez hain.';
  return '';};
 
+/* === YAHAN APNI EmailJS IDs likh sakte hain (ya app ke 📧 Email button se bhi daal sakte hain) ===
+   svc = Service ID | tpl = Alerts template ID | otp = OTP template ID | pub = Public Key */
+const MAIL_DEFAULTS={svc:'service_vo0ppjk',tpl:'',otp:'',pub:''};
 function mailCfg(){
   const p=loadPlat();
-  const t=(TENANT&&p.tenants[TENANT]&&p.tenants[TENANT].emailCfg)||p.emailCfg||{};
+  const t=(TENANT&&p.tenants[TENANT]&&p.tenants[TENANT].emailCfg)||{};
+  const g=p.emailCfg||{};
   const l=LS('dp_ai')||{};
-  return {svc:t.svc||l.svc,tpl:t.tpl||l.tpl,pub:t.pub||l.pub};
+  const pick=k=>t[k]||g[k]||l[k]||MAIL_DEFAULTS[k];
+  return {svc:pick('svc'),tpl:pick('tpl'),otp:pick('otp'),pub:pick('pub')};
 }
 
 sendEmail=async function(to,subject,message){
   const c=mailCfg();window.__mailErr='';
   if(!to){window.__mailErr='Is user ka email save nahi hai.';return{demo:true,reason:'no email'}}
-  if(!(c.svc&&c.tpl&&c.pub)){window.__mailErr='EmailJS ke 3 IDs set nahi hain.';return{demo:true,reason:'not configured'}}
+  const isOtp=/verification code|reset code/i.test(subject||'');
+  const tplId=(isOtp&&c.otp)?c.otp:c.tpl;
+  if(!(c.svc&&tplId&&c.pub)){window.__mailErr='EmailJS ke IDs set nahi hain (Service, Template, Public Key).';return{demo:true,reason:'not configured'}}
+  const co=(typeof D!=='undefined'&&D&&D.set&&D.set.co)||'Sach Marketing Pk';
+  const codeM=String(message||'').match(/\b\d{6}\b/);
+  const expiry=new Date(Date.now()+10*60*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   try{
     const r=await fetch('https://api.emailjs.com/api/v1.0/email/send',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({service_id:c.svc,template_id:c.tpl,user_id:c.pub,template_params:{
+      body:JSON.stringify({service_id:c.svc,template_id:tplId,user_id:c.pub,template_params:{
         to_email:to,email:to,to:to,reply_to:to,subject:subject,message:message,
-        from_name:(typeof D!=='undefined'&&D&&D.set&&D.set.co)||'Sach CRM'}})});
+        from_name:co,name:co,title:subject,
+        passcode:(isOtp&&codeM)?codeM[0]:'',
+        time:isOtp?expiry:new Date().toLocaleString()}})});
     const tx=await r.text();
     if(r.ok)return{ok:true};
     window.__mailErr=r.status+': '+tx;return{demo:true,reason:tx};
@@ -2909,20 +2922,21 @@ start2FA=async function(){
 
 /* Super Admin ke liye Email Setup (poori platform + sab companies ke liye ek baar) */
 function emModal(){
-  const p=loadPlat(),c=p.emailCfg||LS('dp_ai')||{};
+  const p=loadPlat(),c=Object.assign({},MAIL_DEFAULTS,LS('dp_ai')||{},p.emailCfg||{});
   const m=el('div','modal');
   m.innerHTML=`<div class="modal-box"><h2 style="margin-top:0">📧 Email Setup (EmailJS)</h2>
-  <p class="m sm">emailjs.com par free account banayein, Gmail service connect karein, aur ek template banayein jis mein <b>To Email = {{to_email}}</b>, <b>Subject = {{subject}}</b>, Content mein <b>{{message}}</b> ho.</p>
+  <p class="m sm">emailjs.com par free account banayein, Gmail service connect karein, aur ek template banayein jis mein <b>To Email = {{to_email}}</b>, <b>Subject = {{subject}}</b>, Content mein <b>{{message}}</b> ho. OTP ke liye alag template: <b>To Email = {{email}}</b>, Content mein <b>{{passcode}}</b> aur <b>{{time}}</b>.</p>
   <label>Service ID</label><input id="fm1" value="${esc(c.svc||'')}">
-  <label>Template ID</label><input id="fm2" value="${esc(c.tpl||'')}">
+  <label>Alerts Template ID</label><input id="fm2" value="${esc(c.tpl||'')}">
+  <label>OTP Template ID</label><input id="fm6" value="${esc(c.otp||'')}">
   <label>Public Key</label><input id="fm3" value="${esc(c.pub||'')}">
   <label>Test email (jis par bhejna hai)</label><input id="fm4" type="email" placeholder="aap@gmail.com">
   <p id="fmr" class="m sm" style="min-height:20px"></p>
-  <div class="row" style="gap:8px"><button class="p" id="fms" style="flex:1">💾 Save (sab companies ke liye)</button><button id="fmt">✉️ Test</button><button id="fmc">Close</button></div></div>`;
+  <div class="row" style="gap:8px"><button class="p" id="fms" style="flex:1">💾 Save (sab companies ke liye)</button><button id="fmt">✉️ Test</button><button id="fmo">🔐 Test OTP</button><button id="fmc">Close</button></div></div>`;
   document.body.appendChild(m);
   const g=i=>m.querySelector('#'+i);
   const save=()=>{
-    const c2={svc:g('fm1').value.trim(),tpl:g('fm2').value.trim(),pub:g('fm3').value.trim()};
+    const c2={svc:g('fm1').value.trim(),tpl:g('fm2').value.trim(),otp:g('fm6').value.trim(),pub:g('fm3').value.trim()};
     const pp=loadPlat();pp.emailCfg=c2;
     Object.values(pp.tenants||{}).forEach(t=>t.emailCfg=c2);
     savePlat(pp);LS('dp_ai',Object.assign(LS('dp_ai')||{},c2));
@@ -2931,6 +2945,12 @@ function emModal(){
   g('fms').onclick=()=>{save();toast('Email settings save ✓')};
   g('fmc').onclick=()=>m.remove();
   m.onclick=e=>{if(e.target===m)m.remove()};
+  g('fmo').onclick=async()=>{
+    const to=g('fm4').value.trim();if(!to)return g('fmr').textContent='Test email daalein.';
+    save();g('fmr').textContent='OTP bhej raha hoon...';
+    const r=await sendEmail(to,'Test Verification Code','Test code: 123456');
+    g('fmr').textContent=r.ok?'✅ OTP email bhej di gayi. Inbox/Spam check karein.':'❌ '+window.__mailErr+' — '+hint(window.__mailErr);
+  };
   g('fmt').onclick=async()=>{
     const to=g('fm4').value.trim();if(!to)return g('fmr').textContent='Test email daalein.';
     save();g('fmr').textContent='Bhej raha hoon...';
