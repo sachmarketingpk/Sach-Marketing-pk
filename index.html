@@ -435,7 +435,7 @@ function authView(){
       <p class="m">Pehli dafa: platform owner account banao. Is se aap companies create karoge aur unke login links doge.</p>
       <label>Super admin username</label><input id="u" value="admin">
       <label>Password</label><input id="pw" type="password" placeholder="4+ characters">
-      <label>Gmail address (for 2FA & alerts)</label><input id="em" type="email" placeholder="aap@gmail.com">
+      <label>Email address (for OTP & alerts)</label><input id="em" type="email" placeholder="aap@gmail.com">
       <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:13px"><input type="checkbox" id="sp"> Show password</label>
       <p class="bad" id="err" style="margin:8px 0;font-weight:700">${msg}</p>
       <button class="p" style="width:100%;padding:14px;font-size:15px" id="go">Create Platform Owner →</button>
@@ -444,7 +444,7 @@ function authView(){
     $('#go').onclick=async()=>{
       const u=$('#u').value.trim().toLowerCase(),pw=$('#pw').value,em=$('#em').value.trim();
       if(!u||pw.length<4){$('#err').textContent='Username + password (4+) chahiye';return}
-      if(!em||!em.includes('@')){$('#err').textContent='Valid Gmail address zaroori hai';return}
+      if(!em||!em.includes('@')){$('#err').textContent='Valid email address zaroori hai';return}
       p.supers[u]={h:await hash(u+':'+pw),role:'super',email:em,created:nowISO(),perms:ALL_PERMS.slice()};
       savePlat(p);
       LSW('dp_sess',u);LSW('dp_super','1');
@@ -460,7 +460,7 @@ function authView(){
     <div class="auth-logo">🏢</div>
     <span class="act-badge">Sach Marketing</span>
     <h1>Sign In</h1>
-    <p class="m">Kaunsa account? Pehle select karein.</p>
+    <p class="m">Login type select karein: Super Admin ya Company.</p>
     <div class="auth-tabs">
       <button class="${activeTab==='super'?'on':''}" data-at="super">🔑 Super Admin</button>
       <button class="${activeTab==='company'?'on':''}" data-at="company">🏢 Company</button>
@@ -477,7 +477,7 @@ function showLoginForm(type,tParam,uParam){
   const body=$('#authBody');
   if(type==='super'){
     body.innerHTML=`
-      <p class="m" style="margin-bottom:12px">Platform owner yahan login kare.</p>
+      <p class="m" style="margin-bottom:12px">Super Admin login — platform aur tamam companies manage karein.</p>
       <label>Username</label><input id="u" value="${esc(uParam)}" autocomplete="username">
       <label>Password</label><input id="pw" type="password" autocomplete="current-password">
       <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:13px"><input type="checkbox" id="sp"> Show password</label>
@@ -494,7 +494,7 @@ function showLoginForm(type,tParam,uParam){
   } else {
     const tens=Object.values(p.tenants||{});
     body.innerHTML=`
-      <p class="m" style="margin-bottom:12px">Company user yahan login kare.</p>
+      <p class="m" style="margin-bottom:12px">Company login — apni company ka account select karein.</p>
       ${tens.length>1?`<label>Company</label><select id="co">
         ${tens.map(t=>`<option value="${esc(t.slug)}" ${tParam===t.slug?'selected':''}>${esc(t.name)}</option>`).join('')}
       </select>`:`<input type="hidden" id="co" value="${esc(tParam||(tens[0]&&tens[0].slug)||'')}">`}
@@ -740,7 +740,7 @@ function showSuperProfile(){
   m.innerHTML=`<div class="modal-box" style="max-width:480px">
     <h2 style="margin-top:0">👤 Super Admin Profile</h2>
     <label>Username</label><input value="${esc(U)}" readonly>
-    <label>Gmail (2FA & alerts)</label><input id="em" type="email" value="${esc(s.email||'')}">
+    <label>Email (OTP & alerts)</label><input id="em" type="email" value="${esc(s.email||'')}">
     <label>New password (optional)</label><input id="np" type="password" placeholder="leave blank to keep">
     <div class="chk-row" style="margin-top:8px"><input type="checkbox" id="tfa" ${s.tfa!==false?'checked':''}><label for="tfa" style="margin:0;text-transform:none;color:var(--ink);font-weight:600">2FA ON for my account</label></div>
     <div class="row" style="margin-top:14px;gap:8px">
@@ -775,7 +775,7 @@ function newCompanyForm(){
       <label>Company Logo URL (optional)</label><input id="cl" placeholder="https://.../logo.png">
       <label>Admin Username</label><input id="ca">
       <label>Admin Password (4+)</label><input id="cp" type="password">
-      <label>Admin Gmail (for 2FA)</label><input id="ce" type="email">
+      <label>Admin email (for OTP)</label><input id="ce" type="email">
       <label>Phone</label><input id="cph" type="tel">
       <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:13px;margin-top:8px"><input type="checkbox" id="cauth" checked> Admin can add staff (uncheck to restrict to Super Admin only)</label>
       <p class="bad" id="err" style="margin:8px 0;font-weight:700"></p>
@@ -854,7 +854,7 @@ function newSuperForm(){
       <h1>New Super Admin</h1>
       <label>Username</label><input id="u">
       <label>Password (4+)</label><input id="pw" type="password">
-      <label>Gmail (2FA)</label><input id="em" type="email">
+      <label>Email (OTP)</label><input id="em" type="email">
       <p class="bad" id="err"></p>
       <div class="row" style="margin-top:12px"><button class="p" id="ok">✅ Add</button><button onclick="superHome()">Cancel</button></div>
     </div></main></div></div>`;
@@ -1706,7 +1706,7 @@ V.settings=()=>{
       <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
       <label>New username</label><input id="nu">
       <label>Password (4+)</label><input id="np" type="password">
-      <label>Gmail (2FA)</label><input id="ne" type="email">
+      <label>Email (OTP)</label><input id="ne" type="email">
       <label>Role</label><select id="nr"><option value="staff">Staff</option><option value="admin">Admin</option></select>
       <button class="p" id="au">+ Add User</button>
       <p class="bad" id="ue"></p>
@@ -1903,7 +1903,7 @@ function bindView(){
       const em=v.querySelector('#ne').value.trim();
       const us=LS('dp_users')||{};
       if(!n||p.length<4){v.querySelector('#ue').textContent='Username + password (4+)';return}
-      if(!em||!em.includes('@')){v.querySelector('#ue').textContent='Gmail required for 2FA';return}
+      if(!em||!em.includes('@')){v.querySelector('#ue').textContent='Email required for OTP';return}
       if(us[n]){v.querySelector('#ue').textContent='Username exists';return}
       us[n]={h:await hash(n+':'+p),role:v.querySelector('#nr').value,email:em,created:nowISO(),perms:STAFF_DEFAULT.slice(),status:'active'};
       LS('dp_users',us);
