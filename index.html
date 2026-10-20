@@ -435,7 +435,7 @@ function authView(){
       <p class="m">Pehli dafa: platform owner account banao. Is se aap companies create karoge aur unke login links doge.</p>
       <label>Super admin username</label><input id="u" value="admin">
       <label>Password</label><input id="pw" type="password" placeholder="4+ characters">
-      <label>Email address (for OTP & alerts)</label><input id="em" type="email" placeholder="aap@gmail.com">
+      <label>Gmail address (for 2FA & alerts)</label><input id="em" type="email" placeholder="aap@gmail.com">
       <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:13px"><input type="checkbox" id="sp"> Show password</label>
       <p class="bad" id="err" style="margin:8px 0;font-weight:700">${msg}</p>
       <button class="p" style="width:100%;padding:14px;font-size:15px" id="go">Create Platform Owner →</button>
@@ -444,7 +444,7 @@ function authView(){
     $('#go').onclick=async()=>{
       const u=$('#u').value.trim().toLowerCase(),pw=$('#pw').value,em=$('#em').value.trim();
       if(!u||pw.length<4){$('#err').textContent='Username + password (4+) chahiye';return}
-      if(!em||!em.includes('@')){$('#err').textContent='Valid email address zaroori hai';return}
+      if(!em||!em.includes('@')){$('#err').textContent='Valid Gmail address zaroori hai';return}
       p.supers[u]={h:await hash(u+':'+pw),role:'super',email:em,created:nowISO(),perms:ALL_PERMS.slice()};
       savePlat(p);
       LSW('dp_sess',u);LSW('dp_super','1');
@@ -460,7 +460,7 @@ function authView(){
     <div class="auth-logo">🏢</div>
     <span class="act-badge">Sach Marketing</span>
     <h1>Sign In</h1>
-    <p class="m">Login type select karein: Super Admin ya Company.</p>
+    <p class="m">Kaunsa account? Pehle select karein.</p>
     <div class="auth-tabs">
       <button class="${activeTab==='super'?'on':''}" data-at="super">🔑 Super Admin</button>
       <button class="${activeTab==='company'?'on':''}" data-at="company">🏢 Company</button>
@@ -477,7 +477,7 @@ function showLoginForm(type,tParam,uParam){
   const body=$('#authBody');
   if(type==='super'){
     body.innerHTML=`
-      <p class="m" style="margin-bottom:12px">Super Admin login — platform aur tamam companies manage karein.</p>
+      <p class="m" style="margin-bottom:12px">Platform owner yahan login kare.</p>
       <label>Username</label><input id="u" value="${esc(uParam)}" autocomplete="username">
       <label>Password</label><input id="pw" type="password" autocomplete="current-password">
       <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:13px"><input type="checkbox" id="sp"> Show password</label>
@@ -494,7 +494,7 @@ function showLoginForm(type,tParam,uParam){
   } else {
     const tens=Object.values(p.tenants||{});
     body.innerHTML=`
-      <p class="m" style="margin-bottom:12px">Company login — apni company ka account select karein.</p>
+      <p class="m" style="margin-bottom:12px">Company user yahan login kare.</p>
       ${tens.length>1?`<label>Company</label><select id="co">
         ${tens.map(t=>`<option value="${esc(t.slug)}" ${tParam===t.slug?'selected':''}>${esc(t.name)}</option>`).join('')}
       </select>`:`<input type="hidden" id="co" value="${esc(tParam||(tens[0]&&tens[0].slug)||'')}">`}
@@ -520,12 +520,14 @@ function showLoginForm(type,tParam,uParam){
 }
 
 /* ===== 2FA FLOW ===== */
+/* TEMP: true = 2FA/Gmail code skip. Naya Gmail add karne ke baad isay false kar dein. */
+window.SKIP_2FA=true;
 async function start2FA(session){
   const p=loadPlat();
   let user=null,email='';
   if(session.type==='super'){user=p.supers[session.u];email=user.email}
   else {const users=usersOf(session.slug);user=users[session.u];email=user.email}
-  if(!email){finishLogin(session);return}
+  if(!email||window.SKIP_2FA){finishLogin(session);return}
   const code=genCode();
   LS('dp_2fa',{u:session.u,type:session.type,slug:session.slug||'',code,at:Date.now(),tries:0});
 
@@ -740,7 +742,7 @@ function showSuperProfile(){
   m.innerHTML=`<div class="modal-box" style="max-width:480px">
     <h2 style="margin-top:0">👤 Super Admin Profile</h2>
     <label>Username</label><input value="${esc(U)}" readonly>
-    <label>Email (OTP & alerts)</label><input id="em" type="email" value="${esc(s.email||'')}">
+    <label>Gmail (2FA & alerts)</label><input id="em" type="email" value="${esc(s.email||'')}">
     <label>New password (optional)</label><input id="np" type="password" placeholder="leave blank to keep">
     <div class="chk-row" style="margin-top:8px"><input type="checkbox" id="tfa" ${s.tfa!==false?'checked':''}><label for="tfa" style="margin:0;text-transform:none;color:var(--ink);font-weight:600">2FA ON for my account</label></div>
     <div class="row" style="margin-top:14px;gap:8px">
@@ -775,7 +777,7 @@ function newCompanyForm(){
       <label>Company Logo URL (optional)</label><input id="cl" placeholder="https://.../logo.png">
       <label>Admin Username</label><input id="ca">
       <label>Admin Password (4+)</label><input id="cp" type="password">
-      <label>Admin email (for OTP)</label><input id="ce" type="email">
+      <label>Admin Gmail (for 2FA)</label><input id="ce" type="email">
       <label>Phone</label><input id="cph" type="tel">
       <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:13px;margin-top:8px"><input type="checkbox" id="cauth" checked> Admin can add staff (uncheck to restrict to Super Admin only)</label>
       <p class="bad" id="err" style="margin:8px 0;font-weight:700"></p>
@@ -854,7 +856,7 @@ function newSuperForm(){
       <h1>New Super Admin</h1>
       <label>Username</label><input id="u">
       <label>Password (4+)</label><input id="pw" type="password">
-      <label>Email (OTP)</label><input id="em" type="email">
+      <label>Gmail (2FA)</label><input id="em" type="email">
       <p class="bad" id="err"></p>
       <div class="row" style="margin-top:12px"><button class="p" id="ok">✅ Add</button><button onclick="superHome()">Cancel</button></div>
     </div></main></div></div>`;
@@ -1706,7 +1708,7 @@ V.settings=()=>{
       <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
       <label>New username</label><input id="nu">
       <label>Password (4+)</label><input id="np" type="password">
-      <label>Email (OTP)</label><input id="ne" type="email">
+      <label>Gmail (2FA)</label><input id="ne" type="email">
       <label>Role</label><select id="nr"><option value="staff">Staff</option><option value="admin">Admin</option></select>
       <button class="p" id="au">+ Add User</button>
       <p class="bad" id="ue"></p>
@@ -1903,7 +1905,7 @@ function bindView(){
       const em=v.querySelector('#ne').value.trim();
       const us=LS('dp_users')||{};
       if(!n||p.length<4){v.querySelector('#ue').textContent='Username + password (4+)';return}
-      if(!em||!em.includes('@')){v.querySelector('#ue').textContent='Email required for OTP';return}
+      if(!em||!em.includes('@')){v.querySelector('#ue').textContent='Gmail required for 2FA';return}
       if(us[n]){v.querySelector('#ue').textContent='Username exists';return}
       us[n]={h:await hash(n+':'+p),role:v.querySelector('#nr').value,email:em,created:nowISO(),perms:STAFF_DEFAULT.slice(),status:'active'};
       LS('dp_users',us);
@@ -2555,8 +2557,7 @@ async function autoMail(){
   if(!fr.length)return;
   const body=fr.map(a=>a.ic+' '+a.t+'\n   '+a.s).join('\n\n');
   try{
-    const rs=await sendEmail(c.mail,D.set.co+': '+fr.length+' alert(s)',body);
-    if(!rs.ok)return;
+    await fetch('https://api.emailjs.com/api/v1.0/email/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:c.svc,template_id:c.tpl,user_id:c.pub,template_params:{to_email:c.mail,subject:D.set.co+': '+fr.length+' alert(s)',message:body,from_name:D.set.co}})});
     LS('dp_aimail',{d:t,k:[...seen,...fr.map(a=>a.k)]});
   }catch(e){}
 }
@@ -2840,7 +2841,9 @@ V.pnl=()=>{if(!hasPerm('view_reports'))return'<div class="card"><p class="m">Per
  <div class="pg2"><div class="card t3d"><h3 style="margin-top:0">Income</h3><table style="width:100%">${plRows(p.ic)}</table></div><div class="card t3d"><h3 style="margin-top:0">Expenses</h3><table style="width:100%">${plRows(p.ec)}</table></div></div>
  <div class="card t3d"><h3 style="margin-top:0">12 mahine ka trend</h3><div class="bars">${mons.map((k,i)=>`<div><div style="display:flex;gap:2px;align-items:flex-end;height:130px;width:100%;justify-content:center"><div class="b3" style="background:linear-gradient(180deg,#4ade80,#16a34a);height:${ser[i].ti*100/mx}%;width:38%" title="${fmt(ser[i].ti)}"></div><div class="b3" style="background:linear-gradient(180deg,#f87171,#dc2626);height:${ser[i].te*100/mx}%;width:38%" title="${fmt(ser[i].te)}"></div></div><span class="m sm">${k.slice(5)}</span></div>`).join('')}</div></div>`};
 /* COMPANY LINK LOGIN + SEPARATE SUPER ADMIN */
-const _av=authView;authView=function(){_av.apply(this,arguments);try{const t=new URLSearchParams(location.search).get('t');if(t){const p=loadPlat().tenants[t],h=$('.auth-card h1');if(h&&p&&p.name)h.textContent=p.name}}catch(e){}};
+const _av=authView;authView=function(){_av.apply(this,arguments);try{const t=new URLSearchParams(location.search).get('t'),u=new URLSearchParams(location.search).get('u')||'',tabs=$$('[data-at]');if(!tabs.length)return;
+ if(t){tabs.forEach(b=>b.dataset.at==='super'&&b.remove());const b=$('[data-at="company"]');if(b){b.classList.add('on');b.onclick=null}showLoginForm('company',t,u);const p=loadPlat().tenants[t],h=$('.auth-card h1');if(h)h.textContent=p&&p.name?p.name:'Company Login';const m=$('.auth-card p.m');if(m)m.textContent='Apni company ke link se login karein.'}
+ else{tabs.forEach(b=>b.dataset.at==='company'&&b.remove());const b=$('[data-at="super"]');if(b){b.classList.add('on');b.onclick=null}showLoginForm('super','',''); const m=$('.auth-card p.m');if(m)m.textContent='Platform Super Admin (company login sirf unke apne link se).'}}catch(e){}};
 try{if($$('[data-at]').length)authView()}catch(e){}
 /* INTEGRATIONS: server card */
 const _int=V.integrations;V.integrations=()=>_int()+`<div class="card t3d"><h3 style="margin-top:0">☁️ Free Cloud (Google Drive)</h3><p>Status: <b style="color:var(--${SRV.ok?'ok':'bad'})">${SRV.ok?'Connected':'Offline (data sirf is browser mein)'}</b></p><p class="m sm">1) script.google.com → New project → sara code hata kar <b>Code.gs</b> file ka code paste karein → Save<br>2) Deploy → New deployment → type: <b>Web app</b> → Execute as: <b>Me</b> → Who has access: <b>Anyone</b> → Deploy (Google permission maange to Allow karein)<br>3) Jo <b>Web app URL</b> (…/exec) mile wo yahan paste karein.</p><input id="srvUrl" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(localStorage.getItem('dp_fb')||'')}"><div class="row" style="gap:8px;margin-top:10px"><button id="srvSave">💾 Link save</button><button class="p" id="srvUp">⬆️ Poora local data cloud par bhejein</button></div></div>`;
@@ -2874,34 +2877,22 @@ const hint=e=>{e=String(e||'');
  if(/429|limit|quota/i.test(e))return 'Free limit (200/mahina) khatam ho gayi, ya requests bohat tez hain.';
  return '';};
 
-/* === YAHAN APNI EmailJS IDs likh sakte hain (ya app ke 📧 Email button se bhi daal sakte hain) ===
-   svc = Service ID | tpl = Alerts template ID | otp = OTP template ID | pub = Public Key */
-const MAIL_DEFAULTS={svc:'service_vo0ppjk',tpl:'',otp:'',pub:''};
 function mailCfg(){
   const p=loadPlat();
-  const t=(TENANT&&p.tenants[TENANT]&&p.tenants[TENANT].emailCfg)||{};
-  const g=p.emailCfg||{};
+  const t=(TENANT&&p.tenants[TENANT]&&p.tenants[TENANT].emailCfg)||p.emailCfg||{};
   const l=LS('dp_ai')||{};
-  const pick=k=>t[k]||g[k]||l[k]||MAIL_DEFAULTS[k];
-  return {svc:pick('svc'),tpl:pick('tpl'),otp:pick('otp'),pub:pick('pub')};
+  return {svc:t.svc||l.svc,tpl:t.tpl||l.tpl,pub:t.pub||l.pub};
 }
 
 sendEmail=async function(to,subject,message){
   const c=mailCfg();window.__mailErr='';
   if(!to){window.__mailErr='Is user ka email save nahi hai.';return{demo:true,reason:'no email'}}
-  const isOtp=/verification code|reset code/i.test(subject||'');
-  const tplId=(isOtp&&c.otp)?c.otp:c.tpl;
-  if(!(c.svc&&tplId&&c.pub)){window.__mailErr='EmailJS ke IDs set nahi hain (Service, Template, Public Key).';return{demo:true,reason:'not configured'}}
-  const co=(typeof D!=='undefined'&&D&&D.set&&D.set.co)||'Sach Marketing Pk';
-  const codeM=String(message||'').match(/\b\d{6}\b/);
-  const expiry=new Date(Date.now()+10*60*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  if(!(c.svc&&c.tpl&&c.pub)){window.__mailErr='EmailJS ke 3 IDs set nahi hain.';return{demo:true,reason:'not configured'}}
   try{
     const r=await fetch('https://api.emailjs.com/api/v1.0/email/send',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({service_id:c.svc,template_id:tplId,user_id:c.pub,template_params:{
+      body:JSON.stringify({service_id:c.svc,template_id:c.tpl,user_id:c.pub,template_params:{
         to_email:to,email:to,to:to,reply_to:to,subject:subject,message:message,
-        from_name:co,name:co,title:subject,
-        passcode:(isOtp&&codeM)?codeM[0]:'',
-        time:isOtp?expiry:new Date().toLocaleString()}})});
+        from_name:(typeof D!=='undefined'&&D&&D.set&&D.set.co)||'Sach CRM'}})});
     const tx=await r.text();
     if(r.ok)return{ok:true};
     window.__mailErr=r.status+': '+tx;return{demo:true,reason:tx};
@@ -2920,21 +2911,20 @@ start2FA=async function(){
 
 /* Super Admin ke liye Email Setup (poori platform + sab companies ke liye ek baar) */
 function emModal(){
-  const p=loadPlat(),c=Object.assign({},MAIL_DEFAULTS,LS('dp_ai')||{},p.emailCfg||{});
+  const p=loadPlat(),c=p.emailCfg||LS('dp_ai')||{};
   const m=el('div','modal');
   m.innerHTML=`<div class="modal-box"><h2 style="margin-top:0">📧 Email Setup (EmailJS)</h2>
-  <p class="m sm">emailjs.com par free account banayein, Gmail service connect karein, aur ek template banayein jis mein <b>To Email = {{to_email}}</b>, <b>Subject = {{subject}}</b>, Content mein <b>{{message}}</b> ho. OTP ke liye alag template: <b>To Email = {{email}}</b>, Content mein <b>{{passcode}}</b> aur <b>{{time}}</b>.</p>
+  <p class="m sm">emailjs.com par free account banayein, Gmail service connect karein, aur ek template banayein jis mein <b>To Email = {{to_email}}</b>, <b>Subject = {{subject}}</b>, Content mein <b>{{message}}</b> ho.</p>
   <label>Service ID</label><input id="fm1" value="${esc(c.svc||'')}">
-  <label>Alerts Template ID</label><input id="fm2" value="${esc(c.tpl||'')}">
-  <label>OTP Template ID</label><input id="fm6" value="${esc(c.otp||'')}">
+  <label>Template ID</label><input id="fm2" value="${esc(c.tpl||'')}">
   <label>Public Key</label><input id="fm3" value="${esc(c.pub||'')}">
   <label>Test email (jis par bhejna hai)</label><input id="fm4" type="email" placeholder="aap@gmail.com">
   <p id="fmr" class="m sm" style="min-height:20px"></p>
-  <div class="row" style="gap:8px"><button class="p" id="fms" style="flex:1">💾 Save (sab companies ke liye)</button><button id="fmt">✉️ Test</button><button id="fmo">🔐 Test OTP</button><button id="fmc">Close</button></div></div>`;
+  <div class="row" style="gap:8px"><button class="p" id="fms" style="flex:1">💾 Save (sab companies ke liye)</button><button id="fmt">✉️ Test</button><button id="fmc">Close</button></div></div>`;
   document.body.appendChild(m);
   const g=i=>m.querySelector('#'+i);
   const save=()=>{
-    const c2={svc:g('fm1').value.trim(),tpl:g('fm2').value.trim(),otp:g('fm6').value.trim(),pub:g('fm3').value.trim()};
+    const c2={svc:g('fm1').value.trim(),tpl:g('fm2').value.trim(),pub:g('fm3').value.trim()};
     const pp=loadPlat();pp.emailCfg=c2;
     Object.values(pp.tenants||{}).forEach(t=>t.emailCfg=c2);
     savePlat(pp);LS('dp_ai',Object.assign(LS('dp_ai')||{},c2));
@@ -2943,12 +2933,6 @@ function emModal(){
   g('fms').onclick=()=>{save();toast('Email settings save ✓')};
   g('fmc').onclick=()=>m.remove();
   m.onclick=e=>{if(e.target===m)m.remove()};
-  g('fmo').onclick=async()=>{
-    const to=g('fm4').value.trim();if(!to)return g('fmr').textContent='Test email daalein.';
-    save();g('fmr').textContent='OTP bhej raha hoon...';
-    const r=await sendEmail(to,'Test Verification Code','Test code: 123456');
-    g('fmr').textContent=r.ok?'✅ OTP email bhej di gayi. Inbox/Spam check karein.':'❌ '+window.__mailErr+' — '+hint(window.__mailErr);
-  };
   g('fmt').onclick=async()=>{
     const to=g('fm4').value.trim();if(!to)return g('fmr').textContent='Test email daalein.';
     save();g('fmr').textContent='Bhej raha hoon...';
